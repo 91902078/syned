@@ -1,5 +1,6 @@
 import copy
 from collections import OrderedDict
+import pickle
 try:
     import json_tricks as json # to save numpy arrays
 except:
@@ -34,6 +35,8 @@ class SynedObject(object):
         * to_dictionary()
         * to_full_dictionary()
         * to_json()
+        * to_hex_tring()
+        * from_hex_tring()
         * info()
         * set_value_from_key_name()
         * get_value_from_key_name()
@@ -162,6 +165,14 @@ class SynedObject(object):
             f.close()
             print("File written to disk: %s"%(file_name))
         return jsn1
+
+    def to_hex_tring(self):
+        return pickle.dumps(self).hex()
+
+    @classmethod
+    def from_hex_tring(cls, hex_string):
+        return pickle.loads(bytes.fromhex(hex_string))
+
 
     def info_recurrent(self, fd, prefix="    "):
         """

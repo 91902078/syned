@@ -9,7 +9,7 @@ except AttributeError:
 
 NAME = 'syned'
 
-VERSION = '1.0.47'
+VERSION = '1.0.48'
 ISRELEASED = True
 
 DESCRIPTION = 'SYNED (SYNchrotron Elements Dictionary) kernel library'
@@ -35,8 +35,6 @@ CLASSIFIERS = [
     'Environment :: Console',
     'Environment :: Plugins',
     'Programming Language :: Python :: 3',
-    'License :: OSI Approved :: '
-    'GNU General Public License v3 or later (GPLv3+)',
     'Operating System :: POSIX',
     'Operating System :: Microsoft :: Windows',
     'Topic :: Scientific/Engineering :: Visualization',
@@ -50,10 +48,6 @@ INSTALL_REQUIRES = (
     'setuptools',
     'numpy',
     'scipy',
-)
-
-SETUP_REQUIRES = (
-    'setuptools',
 )
 
 PACKAGES = [
@@ -99,7 +93,6 @@ def setup_package():
         zip_safe=False,  # the package can run out of an .egg file
         include_package_data=True,
         install_requires=INSTALL_REQUIRES,
-        setup_requires=SETUP_REQUIRES,
     )
 
 if __name__ == '__main__':
