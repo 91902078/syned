@@ -9,7 +9,7 @@ except AttributeError:
 
 NAME = 'syned'
 
-VERSION = '1.0.48'
+VERSION = '1.0.49'
 ISRELEASED = True
 
 DESCRIPTION = 'SYNED (SYNchrotron Elements Dictionary) kernel library'
@@ -48,6 +48,7 @@ INSTALL_REQUIRES = (
     'setuptools',
     'numpy',
     'scipy',
+    'json-tricks',
 )
 
 PACKAGES = [

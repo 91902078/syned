@@ -1,10 +1,8 @@
 import copy
 from collections import OrderedDict
 import pickle
-try:
-    import json_tricks as json # to save numpy arrays
-except:
-    import json
+
+import json_tricks # to save numpy arrays
 
 # TODO: although basic functionality is implemented, the use of exec should be replace by introspection tools
 class SynedObject(object):
@@ -158,7 +156,7 @@ class SynedObject(object):
         dict1 = OrderedDict()
         dict1.update(self.to_dictionary())
 
-        jsn1 = json.dumps(dict1, indent=4, separators=(',', ': '))
+        jsn1 = json_tricks.dumps(dict1, indent=4, separators=(',', ': '))
         if file_name != None:
             f = open(file_name,'w')
             f.write(jsn1)

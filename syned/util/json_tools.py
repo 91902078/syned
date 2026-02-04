@@ -47,10 +47,8 @@ from syned.beamline.element_coordinates import ElementCoordinates
 
 from collections import OrderedDict
 
-try:
-    import json_tricks as json # to save numpy arrays
-except:
-    import json
+import json_tricks # to save numpy arrays
+
 from urllib.request import urlopen
 
 def load_from_json_file(file_name, exec_commands=None):
@@ -111,7 +109,7 @@ def load_from_json_text(text, exec_commands=None):
     instance of SynedObject
 
     """
-    return load_from_json_dictionary_recurrent(json.loads(text), exec_commands=exec_commands)
+    return load_from_json_dictionary_recurrent(json_tricks.loads(text), exec_commands=exec_commands)
 
 def load_from_json_dictionary_recurrent(jsn, verbose=False, exec_commands=None):
     """

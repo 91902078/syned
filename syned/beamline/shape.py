@@ -411,8 +411,9 @@ class Ellipsoid(SurfaceShape):
 
     References
     ----------
-    Some equations can be found here: https://github.com/srio/shadow3-docs/blob/master/doc/conics.pdf
-
+      Conic Surfaces and Transformations for X-Ray Beamline Optics Modeling,
+      Manuel Sanchez del Rio and Kenneth Goldberg
+      (2024) https://arxiv.org/abs/2406.04079
     """
     def __init__(self, min_axis=0.0, maj_axis=0.0, p_focus=0.0, convexity=Convexity.UPWARD):
         SurfaceShape.__init__(self, convexity)
@@ -531,14 +532,15 @@ class Ellipsoid(SurfaceShape):
         """
         return self._min_axis, self._maj_axis
 
-    def get_p_q(self, grazing_angle=0.003):
+    def get_p_q(self, grazing_angle=None):
         """
         Returns p and q for a given grazing angle.
 
         Parameters
         ----------
-        grazing_angle : float
-            The grazing angle in rad.
+        grazing_angle : None, float
+            The grazing angle in rad. If None it calculates it using a,b,p.
+            ** This is not used, as it is calculated from the ellipsoid parameters **
 
         Returns
         -------
@@ -546,7 +548,7 @@ class Ellipsoid(SurfaceShape):
             (p, q)
 
         """
-        return Ellipsoid.get_p_q_from_axis(self._min_axis, self._maj_axis, grazing_angle)
+        return self.get_p_focus(), self.get_q_focus()
 
     # semiaxes etc
     def get_a(self):
@@ -636,8 +638,8 @@ class Ellipsoid(SurfaceShape):
             (coor_along_axis_maj, coor_along_axis_min).
 
         """
-        coor_along_axis_maj = (self.get_p_focus()**2 - self.get_q_focus()**1) / (4 * self.get_c())
-        coor_along_axis_min = self.get_b * numpy.sqrt(1 - (coor_along_axis_maj / self.get_a())**2)
+        coor_along_axis_maj = (self.get_p_focus()**2 - self.get_q_focus()**2) / (4 * self.get_c())
+        coor_along_axis_min = self.get_b() * numpy.sqrt(1 - (coor_along_axis_maj / self.get_a())**2)
         return coor_along_axis_maj, coor_along_axis_min
 
     def get_angle_pole_from_origin(self):
@@ -698,9 +700,9 @@ class Ellipsoid(SurfaceShape):
             (p, q).
 
         """
-        a = maj_axis/2
-        b = min_axis/2
-        p = a + numpy.sqrt(a**2 - (b/numpy.sin(grazing_angle))**2)
+        a = maj_axis / 2
+        b = min_axis / 2
+        p = a + numpy.sqrt(a**2 - (b / numpy.sin(grazing_angle))**2)
         q = maj_axis - p
 
         return p, q
@@ -805,14 +807,15 @@ class EllipticalCylinder(Ellipsoid, Cylinder):
 
         super().initialize_from_p_q(p, q, grazing_angle)
 
-    def get_p_q(self, grazing_angle=0.003):
+    def get_p_q(self, grazing_angle=None):
         """
         Returns p and q distances for a given grazing angle.
 
         Parameters
         ----------
-        grazing_angle : float
-            The grazing angle in rad.
+        grazing_angle : float, None
+            The grazing angle in rad. If None it calculates it using a,b,p.
+            ** This is not longer used, as it is calculated from the Ellipse parameters **
 
         Returns
         -------
@@ -822,7 +825,7 @@ class EllipticalCylinder(Ellipsoid, Cylinder):
         """
         if self._cylinder_direction == Direction.SAGITTAL: raise NotImplementedError("Operation not possible for SAGITTAL direction")
 
-        return super().get_p_q(grazing_angle)
+        return super().get_p_q()
 
 class Hyperboloid(SurfaceShape):
     """
@@ -838,7 +841,7 @@ class Hyperboloid(SurfaceShape):
     min_axis : float, optional
         the hyperbola minor axis.
     maj_axis : float, optional
-        the hyperbola majot axis.
+        the hyperbola major axis.
     p_focus : float, optional
         the distance from the first focus (source position) to the mirror pole.
     convexity : int (as defined by Convexity), optional
@@ -929,19 +932,6 @@ class Hyperboloid(SurfaceShape):
         self._min_axis, self._maj_axis = Hyperboloid.get_axis_from_p_q(p, q, grazing_angle)
         self._p_focus = p
 
-    # TODO:
-    def initialize_from_shadow_parameters(self, axmaj=2.0, axmin=1.0, ell_the=0.003, convexity=Convexity.UPWARD):
-        """
-           Sets the hyperboloid parameters as calculated from the parameters used in SHADOW.
-           Note that in SHADOW3 the definition of the hyperbola from the factory parameters is buggy.
-
-        Raises
-        ------
-        NotImplementedError
-
-        """
-        raise NotImplementedError("TODO")
-
     def get_axes(self):
         """
         Returns the hyperboloid axes.
@@ -954,14 +944,15 @@ class Hyperboloid(SurfaceShape):
         """
         return self._min_axis, self._maj_axis
 
-    def get_p_q(self, grazing_angle=0.003):
+    def get_p_q(self, grazing_angle=None):
         """
         Returns p and q for a given grazing angle.
 
         Parameters
         ----------
-        grazing_angle : float
-            The grazing angle in rad.
+        grazing_angle : float, None
+            The grazing angle in rad. If None it calculates it using a,b,p.
+            ** This is not longer used as it is calculates from the Hyperbola parameters **
 
         Returns
         -------
@@ -969,7 +960,7 @@ class Hyperboloid(SurfaceShape):
             (p, q)
 
         """
-        return Hyperboloid.get_p_q_from_axis(self._min_axis, self._maj_axis, grazing_angle)
+        return self.get_p_focus(), self.get_q_focus()
 
     # semiaxes etc
     def get_a(self):
@@ -1025,7 +1016,10 @@ class Hyperboloid(SurfaceShape):
         float
 
         """
-        return self.get_p_focus() - 2 * self.get_a()
+        if self.get_p_focus() >  2 * self.get_a():
+            return self.get_p_focus() - 2 * self.get_a() # p > a
+        else:
+            return self.get_p_focus() + 2 * self.get_a()  # p < a
 
     def get_eccentricity(self):
         """
@@ -1047,33 +1041,27 @@ class Hyperboloid(SurfaceShape):
         float
 
         """
-        return numpy.arcsin(self.get_b() / numpy.sqrt(self.get_p_focus() * self.get_q_focus()))
+        return 0.5 * numpy.arccos( (4 * self.get_c()**2 - self.get_p_focus()**2 - self.get_q_focus()**2 ) / (-2 * self.get_p_focus() * self.get_q_focus()))
 
 
-    def get_mirror_center(self):  #TODO:
+    def get_mirror_center(self):
         """
         Returns the coordinates of the mirror pole or center.
 
-        Raises
-        ------
-        NotImplementedError
+        Returns
+        -------
+        tuple
+            (coor_along_axis_maj, coor_along_axis_min).
 
         """
-        raise NotImplementedError("TODO")
 
-    def get_angle_pole_from_origin(self):  #TODO:
-        """
-        Return the angle from pole to origin (beta).
+        coor_along_axis_maj = (self.get_p_focus()**2 - self.get_q_focus()**2) / (4 * self.get_c())
+        coor_along_axis_min = self.get_b() * numpy.sqrt((coor_along_axis_maj / self.get_a())**2 - 1)
 
-        Raises
-        ------
-        NotImplementedError
-
-        """
-        raise NotImplementedError("TODO")
+        return coor_along_axis_maj, coor_along_axis_min
 
     @classmethod
-    def get_axis_from_p_q(cls, p=2.0, q=1.0, grazing_angle=0.003, branch_sign=+1):
+    def get_axis_from_p_q(cls, p=2.0, q=1.0, grazing_angle=0.003, branch_sign=None):
         """
         Calculates the hyperbola axes from the factory parameters.
 
@@ -1085,8 +1073,8 @@ class Hyperboloid(SurfaceShape):
             distance optical element to focus.
         grazing_angle : float, optional
             grazing angle in rad.
-        branch_sign : int
-            +1 (positive) or -1 (negative) branch.
+        branch_sign : None, int
+            +1 (positive) when p > q;  or -1 (negative) when p < q.If None, it is internally calculated.
 
         Returns
         -------
@@ -1094,23 +1082,61 @@ class Hyperboloid(SurfaceShape):
             (minor_axis, major_axis).
 
         """
-        min_axis = 2*numpy.sqrt(p*q)*numpy.sin(grazing_angle)
-        maj_axis = (p - q) * branch_sign
+        if branch_sign is None:
+            if p > q:
+                branch_sign = +1
+            else:
+                branch_sign = -1
+
+        ah = (p - q) * branch_sign / 2
+        ch = 0.5 * numpy.sqrt(p**2 + q**2 - 2 * p * q * numpy.cos(2 * grazing_angle))
+        bh = numpy.sqrt(ch**2 - ah**2)
+
+        maj_axis = 2 * ah
+        min_axis = 2 * bh
 
         return min_axis, maj_axis
 
-    # TODO:
     @classmethod
-    def get_p_q_from_axis(cls, min_axis=2.0, maj_axis=1.0, grazing_angle=0.003):
+    def get_p_q_from_axis(cls, min_axis=2.0, maj_axis=1.0, grazing_angle=0.003, branch_sign=+1):
         """
         Calculates the p and q values from axis and grazing angle.
 
-        Raises
-        ------
-        NotImplementedError
+        Parameters
+        ----------
+        min_axis : float, optional
+            the ellipse minor axis.
+        maj_axis : float, optional
+            the ellipse majot axis.
+        grazing_angle : float, optional
+            grazing angle in rad.
+
+        Returns
+        -------
+        tuple
+            (p, q).
 
         """
-        raise NotImplementedError("TODO")
+        bh = min_axis / 2
+        ah = maj_axis / 2
+        ch = numpy.sqrt(bh**2 + ah**2)
+        c2t = numpy.cos(2 * grazing_angle)
+
+        # p > q; q = p - 2a
+        # 4 c**2 = p**2 + q**2 - 2 p q c2t ; solve quadratic
+        if branch_sign > 0:
+            A = 0.5 * (1 - c2t)
+            B = ah * (-1 + c2t)
+            C = ah**2 - ch**2
+            p1 = (-B + numpy.sqrt(B**2 - 4 * A * C)) / 2 / A
+            q1 = p1 - 2 * ah
+        else:
+            A = 0.5 * (1 - c2t)
+            B = ah * (1 - c2t)
+            C = ah**2 - ch**2
+            p1 = (-B + numpy.sqrt(B**2 - 4 * A * C)) / 2 / A
+            q1 = p1 + 2 * ah
+        return p1, q1
 
 class HyperbolicCylinder(Hyperboloid, Cylinder):
     """
@@ -1213,14 +1239,15 @@ class HyperbolicCylinder(Hyperboloid, Cylinder):
 
         super().initialize_from_p_q(p, q, grazing_angle)
 
-    def get_p_q(self, grazing_angle=0.003):
+    def get_p_q(self, grazing_angle=None):
         """
         Returns p and q distances for a given grazing angle.
 
         Parameters
         ----------
         grazing_angle : float
-            The grazing angle in rad.
+            The grazing angle in rad. If None it calculates it using a,b,p.
+            ** This is not longer used as it is calculates from the Hyperbola parameters **
 
         Returns
         -------
@@ -1230,7 +1257,7 @@ class HyperbolicCylinder(Hyperboloid, Cylinder):
         """
         if self._cylinder_direction == Direction.SAGITTAL: raise NotImplementedError("Operation not possible for SAGITTAL direction")
 
-        return super().get_p_q(grazing_angle)
+        return super().get_p_q()
 
 class Paraboloid(SurfaceShape):
     """
@@ -1279,8 +1306,7 @@ class Paraboloid(SurfaceShape):
 
     https://doi.org/10.1107/S1600577522004593
 
-    Some equations can be found here: https://github.com/srio/shadow3-docs/blob/master/doc/conics.pdf
-
+    https://arxiv.org/abs/2406.04079
     """
     def __init__(self,
                  parabola_parameter=0.0,
@@ -2660,65 +2686,65 @@ class DoubleCircle(MultiplePatch):
 
 if __name__=="__main__":
 
+    if 0:
+        p = 20
+        q = 10
+        theta_graz = 0.003
 
 
-    p = 20
-    q = 10
-    theta_graz = 0.003
+        #
+        # sphere
+        #
+        # sph = Sphere()
+        sph = Sphere.create_sphere_from_p_q(10, 10, 0.021)
+        print(sph.info())
 
-    #
-    # sphere
-    #
-    # sph = Sphere()
-    sph = Sphere.create_sphere_from_p_q(10, 10, 0.021)
-    print(sph.info())
-
-    #
-    # Ellipsoid
-    #
-    ell = Ellipsoid()
-    ell.initialize_from_p_q(p, q, theta_graz)
+        #
+        # Ellipsoid
+        #
+        ell = Ellipsoid()
+        ell.initialize_from_p_q(p, q, theta_graz)
 
 
-    #
-    # toroid
-    #
-    par = Toroid.create_toroid_from_p_q(p=p, q=q, grazing_angle=theta_graz)
-    print("inputs  p, q, theta_graz: ", p, q, theta_graz)
-    radii = par.get_radii()
-    print("toroid radii: ", radii )
-    R =  2 / numpy.sin(theta_graz) * p * q / (p + q)
-    r =  2 * numpy.sin(theta_graz) * p * q / (p + q)
-    assert ((radii[0] - R) < 1e-10 )
-    assert ((radii[0] - r) < 1e-10 )
-    print(par.info())
+        #
+        # toroid
+        #
+        par = Toroid.create_toroid_from_p_q(p=p, q=q, grazing_angle=theta_graz)
+        print("inputs  p, q, theta_graz: ", p, q, theta_graz)
+        radii = par.get_radii()
+        print("toroid radii: ", radii )
+        R =  2 / numpy.sin(theta_graz) * p * q / (p + q)
+        r =  2 * numpy.sin(theta_graz) * p * q / (p + q)
+        assert ((radii[0] - R) < 1e-10 )
+        assert ((radii[0] - r) < 1e-10 )
+        print(par.info())
 
-    #
-    # paraboloid
-    #
-    at_infinity = Side.SOURCE
+        #
+        # paraboloid
+        #
+        at_infinity = Side.SOURCE
 
-    par = Paraboloid.create_paraboloid_from_p_q(p=p, q=q, grazing_angle=theta_graz, at_infinity=at_infinity, convexity=Convexity.UPWARD)
-    print("inputs  p, q, theta_graz: ", p, q, theta_graz, at_infinity)
-    print ("parabola p or q: ",par.get_pole_to_focus())
-    print("parabola par: ", par.get_parabola_parameter())
-    print("parabola grazing_angle: ", par.get_grazing_angle())
-    if par.get_at_infinity() == Side.SOURCE:
-        assert (numpy.abs(q - par.get_pole_to_focus()) < 1e-10 )
-    else:
-        assert (numpy.abs(p - par.get_pole_to_focus()) < 1e-10)
-    assert (numpy.abs(theta_graz - par.get_grazing_angle()) < 1e-10)
-    print(par.info())
+        par = Paraboloid.create_paraboloid_from_p_q(p=p, q=q, grazing_angle=theta_graz, at_infinity=at_infinity, convexity=Convexity.UPWARD)
+        print("inputs  p, q, theta_graz: ", p, q, theta_graz, at_infinity)
+        print ("parabola p or q: ",par.get_pole_to_focus())
+        print("parabola par: ", par.get_parabola_parameter())
+        print("parabola grazing_angle: ", par.get_grazing_angle())
+        if par.get_at_infinity() == Side.SOURCE:
+            assert (numpy.abs(q - par.get_pole_to_focus()) < 1e-10 )
+        else:
+            assert (numpy.abs(p - par.get_pole_to_focus()) < 1e-10)
+        assert (numpy.abs(theta_graz - par.get_grazing_angle()) < 1e-10)
+        print(par.info())
 
-    #
-    # parabolic cylinder: TODO: check that the info is not good for double inheritage
-    #
-    a = Cylinder()
-    print(a.info())
-    print(a.to_dictionary())
+        #
+        # parabolic cylinder: TODO: check that the info is not good for double inheritage
+        #
+        a = Cylinder()
+        print(a.info())
+        print(a.to_dictionary())
 
-    parC = ParabolicCylinder(par, a)
-    print(parC.info())
+        parC = ParabolicCylinder(par, a)
+        print(parC.info())
 
 
 
@@ -2726,78 +2752,133 @@ if __name__=="__main__":
     # some other checks...
     #
 
-    # conic coeffs.
-    ccc = Conic()
-    print(ccc.get_conic_coefficients())
-    print(ccc.info())
-    ccc.to_json("tmp.json")
-    from syned.util.json_tools import load_from_json_file
-    tmp = load_from_json_file("tmp.json")
-    print("returned class: ",type(tmp))
-    print(ccc.to_dictionary())
-    print(tmp.to_dictionary())
-    # from deepdiff import DeepDiff # use this because  == gives an error
-    # assert (len(DeepDiff(ccc.to_dictionary(), tmp.to_dictionary())) == 0)
+    if 0:
+        # conic coeffs.
+        ccc = Conic()
+        print(ccc.get_conic_coefficients())
+        print(ccc.info())
+        ccc.to_json("tmp.json")
+        from syned.util.json_tools import load_from_json_file
+        tmp = load_from_json_file("tmp.json")
+        print("returned class: ",type(tmp))
+        print(ccc.to_dictionary())
+        print(tmp.to_dictionary())
+
+        # from deepdiff import DeepDiff # use this because  == gives an error
+        # assert (len(DeepDiff(ccc.to_dictionary(), tmp.to_dictionary())) == 0)
 
 
+        # circle
+        circle = Circle(3.0)
+        print(circle.get_radius(),circle.get_center())
+        print(circle.get_boundaries())
+
+        # patches
+        patches = MultiplePatch()
+
+        patches.append_rectangle(-0.02,-0.01,-0.001,0.001)
+        patches.append_rectangle(0.01,0.02,-0.001,0.001)
+        patches.append_polygon([-0.02,-0.02,0.02,0.02], [-0.02,0.02,0.02,-0.02])
+
+        print(patches.get_number_of_patches(),patches.get_boundaries())
+        for patch in patches.get_patches():
+            print(patch.info())
+        print("Patch 0 is: ",patches.get_name_of_patch(0))
+        print("Patch 1 is: ",patches.get_name_of_patch(1))
+        print(patches.get_boundaries())
 
 
-    # circle
-    circle = Circle(3.0)
-    print(circle.get_radius(),circle.get_center())
-    print(circle.get_boundaries())
+        # double rectangle
+        double_rectangle = DoubleRectangle()
+        double_rectangle.set_boundaries(-0.02,-0.01,-0.001,0.001,0.01,0.02,-0.001,0.001)
+        print("Rectangle 0 is: ",double_rectangle.get_name_of_patch(0))
+        print("Rectangle 1 is: ",double_rectangle.get_name_of_patch(1))
+        print(double_rectangle.get_boundaries())
+
+        # polygon
+        angle = numpy.linspace(0, 2 * numpy.pi, 5)
+        x = numpy.sin(angle) + 0.5
+        y = numpy.cos(angle) + 0.5
+        poly = Polygon(x=x, y=y)
+        print(poly.info())
+        print("vertices: ", poly.get_number_of_vertices())
+        if False:
+            from srxraylib.plot.gol import plot,set_qt
+            set_qt()
+            plot(x,y)
+        print(poly.get_polygon())
+        print("inside? : ", poly.check_inside([0.5,0],[0.5,5]))
+        print("outside? : ", poly.check_outside([0.5, 0], [0.5, 5]))
 
 
+        # multiple patches
+        patches = MultiplePatch()
+        patches.append_polygon(numpy.array([-1,-1,1,1]),numpy.array([-1,1,1,-1]))
+        x = [-0.00166557,  0.12180897, -0.11252591, -0.12274196,  0.00586896, -0.12999401, -0.12552975, -0.0377907,  -0.01094828, -0.13689862]
+        y = [ 0.16279557, -0.00085991,  0.01349174, -0.01371226,  0.01480265, -0.04810334, 0.07198068, -0.03725407,  0.13301309, -0.00296213]
+        x = numpy.array(x)
+        y = numpy.array(y)
+        patch = patches.get_patch(0)
+        # print(patch.check_inside(x,y))
+        for i in range(x.size):
+            tmp = patch.check_inside_one_point(x[i], y[i])
+            print(x[i], y[i], tmp )
+        print("inside? : ", patch.check_inside(x, y), type(patch.check_inside(x, y)))
+        print("inside? : ", patch.check_inside_vector(x, y), type(patch.check_inside_vector(x, y)))
 
-    # patches
-    patches = MultiplePatch()
+    if 1: # checking Hyperbolas
 
-    patches.append_rectangle(-0.02,-0.01,-0.001,0.001)
-    patches.append_rectangle(0.01,0.02,-0.001,0.001)
-    patches.append_polygon([-0.02,-0.02,0.02,0.02], [-0.02,0.02,0.02,-0.02])
+        theta_graz = 0.003
 
-    print(patches.get_number_of_patches(),patches.get_boundaries())
-    for patch in patches.get_patches():
-        print(patch.info())
-    print("Patch 0 is: ",patches.get_name_of_patch(0))
-    print("Patch 1 is: ",patches.get_name_of_patch(1))
-    print(patches.get_boundaries())
+        #
+        # Ellipsoid
+        #
+        print("===============================================")
+        p = 20
+        q = 10
+        ell = Ellipsoid()
+        ell.initialize_from_p_q(p, q, theta_graz)
+        print(ell.info())
+        print("a, b, c: ", ell.get_a(), ell.get_b(), ell.get_c())
+        print("p, q, theta: ", ell.get_p_focus(), ell.get_q_focus(), ell.get_grazing_angle())
+        print("center: ", ell.get_mirror_center())
+        p2, q2 = ell.get_p_q()
+        print(p, p2, q, q2)
+        print("===============================================")
+        p = 10
+        q = 20
+        ell = Ellipsoid()
+        ell.initialize_from_p_q(p, q, theta_graz)
+        print(ell.info())
+        print("a, b, c: ", ell.get_a(), ell.get_b(), ell.get_c())
+        print("p, q, theta: ", ell.get_p_focus(), ell.get_q_focus(), ell.get_grazing_angle())
+        print("center: ", ell.get_mirror_center())
+        p2, q2 = ell.get_p_q()
+        print(p, p2, q, q2)
+        print("===============================================")
 
-
-    # double rectangle
-    double_rectangle = DoubleRectangle()
-    double_rectangle.set_boundaries(-0.02,-0.01,-0.001,0.001,0.01,0.02,-0.001,0.001)
-    print("Rectangle 0 is: ",double_rectangle.get_name_of_patch(0))
-    print("Rectangle 1 is: ",double_rectangle.get_name_of_patch(1))
-    print(double_rectangle.get_boundaries())
-
-    # polygon
-    angle = numpy.linspace(0, 2 * numpy.pi, 5)
-    x = numpy.sin(angle) + 0.5
-    y = numpy.cos(angle) + 0.5
-    poly = Polygon(x=x, y=y)
-    print(poly.info())
-    print("vertices: ", poly.get_number_of_vertices())
-    if False:
-        from srxraylib.plot.gol import plot,set_qt
-        set_qt()
-        plot(x,y)
-    print(poly.get_polygon())
-    print("inside? : ", poly.check_inside([0.5,0],[0.5,5]))
-    print("outside? : ", poly.check_outside([0.5, 0], [0.5, 5]))
-
-
-    # multiple patches
-    patches = MultiplePatch()
-    patches.append_polygon(numpy.array([-1,-1,1,1]),numpy.array([-1,1,1,-1]))
-    x = [-0.00166557,  0.12180897, -0.11252591, -0.12274196,  0.00586896, -0.12999401, -0.12552975, -0.0377907,  -0.01094828, -0.13689862]
-    y = [ 0.16279557, -0.00085991,  0.01349174, -0.01371226,  0.01480265, -0.04810334, 0.07198068, -0.03725407,  0.13301309, -0.00296213]
-    x = numpy.array(x)
-    y = numpy.array(y)
-    patch = patches.get_patch(0)
-    # print(patch.check_inside(x,y))
-    for i in range(x.size):
-        tmp = patch.check_inside_one_point(x[i], y[i])
-        print(x[i], y[i], tmp )
-    print("inside? : ", patch.check_inside(x, y), type(patch.check_inside(x, y)))
-    print("inside? : ", patch.check_inside_vector(x, y), type(patch.check_inside_vector(x, y)))
+        #
+        # Hyperboloid
+        p = 20
+        q = 10
+        hyp = Hyperboloid()
+        hyp.initialize_from_p_q(p, q, theta_graz)
+        print(hyp.info())
+        print("a, b, c: ", hyp.get_a(), hyp.get_b(), hyp.get_c())
+        print("p, q, theta: ", hyp.get_p_focus(), hyp.get_q_focus(), hyp.get_grazing_angle())
+        print("center: ", hyp.get_mirror_center())
+        p1, q1 = hyp.get_p_q()
+        print(p, p1, q, q1)
+        print("===============================================")
+        # now p < q (swap p, q)
+        p = 10
+        q = 20
+        hyp = Hyperboloid()
+        hyp.initialize_from_p_q(p, q, theta_graz)
+        print(hyp.info())
+        print("a, b, c: ", hyp.get_a(), hyp.get_b(), hyp.get_c())
+        print("p, q, theta: ", hyp.get_p_focus(), hyp.get_q_focus(), hyp.get_grazing_angle())
+        print("center: ", hyp.get_mirror_center())
+        p1, q1 = hyp.get_p_q()
+        print(p, p1, q, q1)
+        print("===============================================")
